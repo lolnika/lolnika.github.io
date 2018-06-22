@@ -13,12 +13,18 @@
  *along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+Last Update: 06/22/2018
+JS Version: 1.13
+Author: Ning Yu
+*/
 (function(ext) {
 
   var MINI_DCMOTOR_CONFIG = 0x04,
     MINI_SERVO_CONFIG = 0x08,
     MINI_RGB_CONFIG = 0x12,
-    MINI_BTN_REPORT = 0x0B;
+    MINI_BTN_REPORT = 0x0B,
+    MINI_GET_ULTRA = 0x10;
 
   var PIN_MODE = 0xF4,
     REPORT_DIGITAL = 0xD0,
@@ -63,6 +69,8 @@
     storedInputData = new Uint8Array(MAX_DATA_BYTES);
 
   var MINI_BTN_Status = [];
+  //var mini_digitalPortInputData = new Uint16Array(16);
+  var RangeInCentimeters = 0;
 
   var digitalOutputData = new Uint8Array(16),
     digitalInputData = new Uint8Array(16),
@@ -171,7 +179,9 @@
         START_SYSEX, ANALOG_MAPPING_QUERY, END_SYSEX]);
     device.send(msg.buffer);
   }
-
+  function setminiDigitalPortInputs(portNum, portData) {
+    mini_digitalPortInputData[portNum] = portData;
+  }
   function setDigitalInputs(portNum, portData) {
     digitalInputData[portNum] = portData;
   }
@@ -235,6 +245,12 @@
           MINI_BTN_Status[2] = storedInputData[2];
         sysexBytesRead = 0;
         break;
+
+      case MINI_GET_ULTRA:
+        console.log('ultrasonic command recieved ',sysexBytesRead);
+        RangeInCentimeters = storedInputData[1] + (storedInputData[2] << 8 );
+        sysexBytesRead = 0;
+        break;
     }
   }
 
@@ -294,6 +310,20 @@
   }
 
   function analogRead(pin) {
+    switch(pin){
+        case menus[lang]['mini_analog_pins'][0]:
+          pin = 0;
+          break;
+        case menus[lang]['mini_analog_pins'][1]:
+          pin = 1;
+          break;
+        case menus[lang]['mini_analog_pins'][2]:
+          pin = 2;
+          break;
+        case menus[lang]['mini_analog_pins'][3]:
+          pin = 3;
+          break;
+    }
     if (pin >= 0 && pin < pinModes[ANALOG].length) {
       return Math.round((analogInputData[pin] * 100) / 1023);
     } else {
@@ -306,6 +336,23 @@
   }
 
   function digitalRead(pin) {
+    switch(pin){
+        case menus[lang]['mini_digital_pins'][0]:
+          pin = 2;
+          break;
+        case menus[lang]['mini_digital_pins'][1]:
+          pin = 3;
+          break;
+        case menus[lang]['mini_digital_pins'][2]:
+          pin = 4;
+          break;
+        case menus[lang]['mini_digital_pins'][3]:
+          pin = 5;
+          break;
+        case menus[lang]['mini_digital_pins'][4]:
+          pin = 6;
+          break;
+    }
     if (!hasCapability(pin, INPUT)) {
       console.log('ERROR: valid input pins are ' + pinModes[INPUT].join(', '));
       return;
@@ -315,6 +362,20 @@
   }
 
   function analogWrite(pin, val) {
+    switch(pin){
+        case menus[lang]['mini_analog_pins'][0]:
+          pin = 0;
+          break;
+        case menus[lang]['mini_analog_pins'][1]:
+          pin = 1;
+          break;
+        case menus[lang]['mini_analog_pins'][2]:
+          pin = 2;
+          break;
+        case menus[lang]['mini_analog_pins'][3]:
+          pin = 3;
+          break;
+    }
     if (!hasCapability(pin, PWM)) {
       console.log('ERROR: valid PWM pins are ' + pinModes[PWM].join(', '));
       return;
@@ -331,6 +392,23 @@
   }
 
   function digitalWrite(pin, val) {
+    switch(pin) {
+        case menus[lang]['mini_digital_pins'][0]:
+          pin = 2;
+          break;
+        case menus[lang]['mini_digital_pins'][1]:
+          pin = 3;
+          break;
+        case menus[lang]['mini_digital_pins'][2]:
+          pin = 4;
+          break;
+        case menus[lang]['mini_digital_pins'][3]:
+          pin = 5;
+          break;
+        case menus[lang]['mini_digital_pins'][4]:
+          pin = 6;
+          break;
+    }
     if (!hasCapability(pin, OUTPUT)) {
       console.log('ERROR: valid output pins are ' + pinModes[OUTPUT].join(', '));
       return;
@@ -347,20 +425,6 @@
         digitalOutputData[portNum] >> 0x07]);
     device.send(msg.buffer);
   }
-
-  function rotateServo(pin, deg) {
-    if (!hasCapability(pin, SERVO)) {
-      console.log('ERROR: valid servo pins are ' + pinModes[SERVO].join(', '));
-      return;
-    }
-    pinMode(pin, SERVO);
-    var msg = new Uint8Array([
-        ANALOG_MESSAGE | (pin & 0x0F),
-        deg & 0x7F,
-        deg >> 0x07]);
-    device.send(msg.buffer);
-  }
-
 
   /*****************************************************************************
                           Matrixmini Standard protocols
@@ -447,6 +511,32 @@
     //console.log('MINI_BTN_Status =' + MINI_BTN_Status);
     return (MINI_BTN_Status[led_num]==1)?false:true;
   };
+
+  ext.getUltrasonic = function(hw) {
+    var digitalPort;
+    //ultrasonic sensor with echo and trig pins
+    if(hw == menus[lang]['mini_digitalPorts'][0]) {
+      digitalPort = 1;
+    }
+    else if (hw == menus[lang]['mini_buttons'][1]) {
+      digitalPort = 2;
+    }
+    else if (hw == menus[lang]['mini_buttons'][2]) {
+      digitalPort = 3;
+    }
+    else if (hw == menus[lang]['mini_buttons'][3]) {
+      digitalPort = 4;
+    }
+
+    var msg = new Uint8Array([
+        START_SYSEX,
+        MINI_GET_ULTRA,
+        digitalPort,
+        END_SYSEX]);
+    device.send(msg.buffer);
+    console.log('Range in cm =' + RangeInCentimeters);
+    return RangeInCentimeters;
+  };
   /*****************************************************************************
 
   *****************************************************************************/
@@ -501,74 +591,12 @@
     hwList.add(hw, pin);
   };
 
-  ext.rotateServo = function(servo, deg) {
-    var hw = hwList.search(servo);
-    if (!hw) return;
-    if (deg < 0) deg = 0;
-    else if (deg > 180) deg = 180;
-    rotateServo(hw.pin, deg);
-    hw.val = deg;
-  };
-
-  ext.changeServo = function(servo, change) {
-    var hw = hwList.search(servo);
-    if (!hw) return;
-    var deg = hw.val + change;
-    if (deg < 0) deg = 0;
-    else if (deg > 180) deg = 180;
-    rotateServo(hw.pin, deg);
-    hw.val = deg;
-  };
-
-  ext.setLED = function(led, val) {
-    var hw = hwList.search(led);
-    if (!hw) return;
-    analogWrite(hw.pin, val);
-    hw.val = val;
-  };
-
-  ext.changeLED = function(led, val) {
-    var hw = hwList.search(led);
-    if (!hw) return;
-    var b = hw.val + val;
-    if (b < 0) b = 0;
-    else if (b > 100) b = 100;
-    analogWrite(hw.pin, b);
-    hw.val = b;
-  };
-
-  ext.digitalLED = function(led, val) {
-    var hw = hwList.search(led);
-    if (!hw) return;
-    if (val == 'on') {
-      digitalWrite(hw.pin, HIGH);
-      hw.val = 255;
-    } else if (val == 'off') {
-      digitalWrite(hw.pin, LOW);
-      hw.val = 0;
-    }
-  };
-
   ext.readInput = function(name) {
     var hw = hwList.search(name);
     if (!hw) return;
     return analogRead(hw.pin);
   };
-////////////////////
-  ext.whenButton = function(btn, state) {
-    var hw = hwList.search(btn);
-    if (!hw) return;
-    if (state === 'pressed')
-      return digitalRead(hw.pin);
-    else if (state === 'released')
-      return !digitalRead(hw.pin);
-  };
-//////////////////////
-  ext.isButtonPressed = function(btn) {
-    var hw = hwList.search(btn);
-    if (!hw) return;
-    return digitalRead(hw.pin);
-  };
+
 ////////////////////
   ext.whenInput = function(name, op, val) {
     var hw = hwList.search(name);
@@ -654,66 +682,43 @@
   var blocks = {
     en: [
       //Matrixmini extensions
-      [' ', 'Set mini DCMotor %m.minimotorPort speed %m.speed', 'SetMiniDCMotorSpeed', '1', '255'],
-      [' ', 'set mini servo %m.miniservoPort angle %m.servovalue' ,'SetMiniServoDegree', '1', '90'],
-      [' ', 'set mini rgb %m.minirgbPort R %m.rgbvalue G %m.rgbvalue B %m.rgbvalue' ,'SetMiniRGBPwm', '1', '0', '0', '0'],
+      ['h', 'when mini is connected', 'whenConnected'],
+      ['-'],//mini supported functions
+      [' ', 'Set mini DCMotor %m.minimotorPort speed %n', 'SetMiniDCMotorSpeed', '1', 255],
+      [' ', 'set mini servo %m.miniservoPort angle %n' ,'SetMiniServoDegree', '1', 90],
+      [' ', 'set mini rgb %m.minirgbPort R %n G %n B %n' ,'SetMiniRGBPwm', '1', 0, 0, 0],
       ['b', 'is mini Button %m.mini_buttons pressed?', 'ReadMiniButton', 'MINI_BTN1'],
-
-      ['h', 'when device is connected', 'whenConnected'],
-      [' ', 'connect %m.hwOut to pin %n', 'connectHW', 'led A', 3],
-      [' ', 'connect %m.hwIn to analog %n', 'connectHW', 'rotation knob', 0],
-      ['-'],
-      [' ', 'set %m.leds %m.outputs', 'digitalLED', 'led A', 'on'],
-      [' ', 'set %m.leds brightness to %n%', 'setLED', 'led A', 100],
-      [' ', 'change %m.leds brightness by %n%', 'changeLED', 'led A', 20],
-      ['-'],
-      [' ', 'rotate %m.servos to %n degrees', 'rotateServo', 'servo A', 180],
-      [' ', 'rotate %m.servos by %n degrees', 'changeServo', 'servo A', 20],
-      ['-'],
-      ['h', 'when %m.buttons is %m.btnStates', 'whenButton', 'button A', 'pressed'],
-      ['b', '%m.buttons pressed?', 'isButtonPressed', 'button A'],
-      ['-'],
-      ['h', 'when %m.hwIn %m.ops %n%', 'whenInput', 'rotation knob', '>', 50],
-      ['r', 'read %m.hwIn', 'readInput', 'rotation knob'],
-      ['-'],
-      [' ', 'set pin %n %m.outputs', 'digitalWrite', 1, 'on'],
-      [' ', 'set pin %n to %n%', 'analogWrite', 3, 100],
-      ['-'],
-      ['h', 'when pin %n is %m.outputs', 'whenDigitalRead', 1, 'on'],
-      ['b', 'pin %n on?', 'digitalRead', 1],
-      ['-'],
+      ['-'],//sensors//ports
+      ['r', 'Measure Ultrasonic Distance on Digital Port %m.mini_digitalPorts In Centimeters', 'getUltrasonic','D1'],
+      ['-'],//digital pins
+      ['h', 'when digital pin %m.mini_digital_pins is %m.outputs', 'whenDigitalRead', 'd1', 'on'],
+      [' ', 'set digital pin %m.mini_digital_pins %m.outputs', 'digitalWrite', 'd1', 'on'],
+      ['b', 'is digital pin %m.mini_digital_pins on?', 'digitalRead', 'd1'],
+      ['-'],//analog pins
       ['h', 'when analog %n %m.ops %n%', 'whenAnalogRead', 1, '>', 50],
-      ['r', 'read analog %n', 'analogRead', 0],
-      ['-'],
-      ['r', 'map %n from %n %n to %n %n', 'mapValues', 50, 0, 100, -240, 240]
+      [' ', 'set analog pin %m.mini_analog_pins to %n', 'analogWrite', 'a0', 100],
+      ['r', 'read analog pin %m.mini_analog_pins', 'analogRead', 'a0'],
+      ['-'],//caculations
+      ['r', 'map %n from %n %n to %n %n', 'mapValues', 50, 0, 100, -255, 255]
     ],
     zh: [
-      ['h', '當裝置連接時', 'whenConnected'],
-      [' ', '連接 %m.hwOut 到腳位 %n', 'connectHW', '發光二極體 A', 3],
-      [' ', '連接 %m.hwIn 到類比 %n', 'connectHW', '旋鈕', 0],
-      ['-'],
-      [' ', '設定 %m.leds %m.outputs', 'digitalLED', '發光二極體 A', 'on'],
-      [' ', '設定 %m.leds 亮度為 %n%', 'setLED', '發光二極體 A', 100],
-      [' ', '改變 %m.leds 亮度 %n%', 'changeLED', '發光二極體 A', 20],
-      ['-'],
-      [' ', '旋轉 %m.servos 到 %n 度', 'rotateServo', '伺服馬達 A', 180],
-      [' ', '旋轉 %m.servos %n 度', 'changeServo', '伺服馬達 A', 20],
-      ['-'],
-      ['h', '當 %m.buttons 為 %m.btnStates', 'whenButton', '按鈕 A', '按下'],
-      ['b', '%m.buttons 按下?', 'isButtonPressed', '按鈕 A'],
-      ['-'],
-      ['h', '當 %m.hwIn %m.ops %n%', 'whenInput', '旋鈕', '>', 50],
-      ['r', '讀取 %m.hwIn', 'readInput', '旋鈕'],
-      ['-'],
-      [' ', '設定腳位 %n %m.outputs', 'digitalWrite', 1, '開'],
-      [' ', '設定腳位 %n 為 %n%', 'analogWrite', 3, 100],
-      ['-'],
-      ['h', '當腳位 %n 為 %m.outputs', 'whenDigitalRead', 1, '開'],
-      ['b', '腳位 %n 開?', 'digitalRead', 1],
-      ['-'],
+      ['h', '當 mini 連接時', 'whenConnected'],
+      ['-'],//mini支援的功能
+      [' ', '設定 mini 馬達 %m.minimotorPort 轉速為 %n', 'SetMiniDCMotorSpeed','1', 255],
+      [' ', '旋轉 mini 伺服馬達 %m.miniservoPort 到 %n 度', 'SetMiniServoDegree', '1', 90],
+      [' ', '設定 mini RGB %m.minirgbPort 的亮度為 紅色 %n 綠色 %n 藍色 %n', 'SetMiniRGBPwm', '1',0, 0, 0],
+      ['b', '偵測到 %m.mini_buttons 被按下?', 'ReadMiniButton', 'MINI按鈕 1'],
+      ['-'],//感測器
+      ['r', '設定數位插座 %m.mini_digitalPorts 並量測超音波距離(公分)', 'getUltrasonic','D1'],
+      ['-'],//數位腳位
+      ['h', '當數位腳位 %m.mini_digital_pins 為 %m.outputs', 'whenDigitalRead', 'd1', '開'],
+      [' ', '設定數位腳位 %m.mini_digital_pins %m.outputs', 'digitalWrite', 'd1', '開'],
+      ['b', '偵測到數位腳位 %m.mini_digital_pins 為 1?', 'digitalRead', 'd1'],
+      ['-'],//類比腳位
       ['h', '當類比 %n %m.ops %n%', 'whenAnalogRead', 1, '>', 50],
-      ['r', '讀取類比 %n', 'analogRead', 0],
-      ['-'],
+      [' ', '設定類比腳位 %m.mini_analog_pins 為 %n', 'analogWrite', 'a0', 100],
+      ['r', '讀取類比角為 %m.mini_analog_pins', 'analogRead', 'a0'],
+      ['-'],//計算方程式
       ['r', '對應 %n 由 %n %n 為 %n %n', 'mapValues', 50, 0, 100, -240, 240]
     ]
   };
@@ -736,7 +741,11 @@
       speed:['255','100','50','0','-50','-100','-255'],
       rgbvalue:['0','50','100','150','200','255'],
       servovalue:['0','45','90','135','180'],
-      mini_buttons: ['MINI_BTN1', 'MINI_BTN2']
+      mini_buttons: ['MINI_BTN1', 'MINI_BTN2'],
+      mini_digital_pins: ['d1','d2','d3','d4','d5'],
+      mini_analog_pins: ['a0','a1','a2','a3'],
+      mini_digitalPorts: ['D1','D2','D3','D4'],
+      mini_analogPorts: ['A1','A2','A3']
 //////////////////////////////////////////////////////////////////
     },
     zh: {
@@ -747,7 +756,8 @@
       leds: ['發光二極體 A', '發光二極體 B', '發光二極體 C', '發光二極體 D'],
       outputs: ['開', '關'],
       ops: ['>', '=', '<'],
-      servos: ['伺服馬達 A', '伺服馬達 B', '伺服馬達 C', '伺服馬達 D']
+      servos: ['伺服馬達 A', '伺服馬達 B', '伺服馬達 C', '伺服馬達 D'],
+      mini_buttons: ['MINI按鈕 1', 'MINI按鈕 2']
     }
   };
 
@@ -757,6 +767,6 @@
     url: 'http://khanning.github.io/scratch-arduino-extension'
   };
 
-  ScratchExtensions.register('Arduino', descriptor, ext, {type:'serial'});
+  ScratchExtensions.register('Matrixmini', descriptor, ext, {type:'serial'});
 
 })({});
