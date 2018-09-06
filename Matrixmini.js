@@ -1,21 +1,6 @@
 /*
- *This program is free software: you can redistribute it and/or modify
- *it under the terms of the GNU General Public License as published by
- *the Free Software Foundation, either version 3 of the License, or
- *(at your option) any later version.
- *
- *This program is distributed in the hope that it will be useful,
- *but WITHOUT ANY WARRANTY; without even the implied warranty of
- *MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *GNU General Public License for more details.
- *
- *You should have received a copy of the GNU General Public License
- *along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-/*
-Last Update: 06/22/2018
-JS Version: 1.13
+Last Update: 09/06/2018
+JS Version: 1.14
 Author: Ning Yu
 */
 (function(ext) {
@@ -430,21 +415,31 @@ Author: Ning Yu
                           Matrixmini Standard protocols
   *****************************************************************************/
   ext.SetMiniDCMotorSpeed = function(num, speed) {
-    //SetMiniDCMotorSpeed(num, speed);
+    var clockwise;
     if(num > 2) {
       console.log('ERROR: invalid mini motor port');
       return;
+    }
+
+    if(speed >= 0){
+      if(speed >=100) speed = 100;
+      clockwise = 0;
+    }
+    else {
+      if(speed <=-100) speed = -100;
+      clockwise = 1;
+      speed = -speed;
     }
 
     var msg = new Uint8Array([
         START_SYSEX,
         MINI_DCMOTOR_CONFIG,
         num,
-        speed,//speed & 0x7F,
-        speed>>0x08,//speed >> 0x0F,
+        clockwise,
+        speed,
         END_SYSEX]);
     device.send(msg.buffer);
-    console.log('Set DC Motor Speed');
+    console.log('Set DC Motor Speed = ',speed);
   };
 
   ext.SetMiniServoDegree = function(num,deg) {
@@ -452,6 +447,10 @@ Author: Ning Yu
       console.log('ERROR: invalid mini servo port');
       return;
     }
+
+    if(deg < 0) deg = 0;
+    if(deg >180) deg = 180;
+
     var msg = new Uint8Array([
         START_SYSEX,
         MINI_SERVO_CONFIG,
@@ -468,6 +467,16 @@ Author: Ning Yu
       console.log('ERROR: invalid mini RGB port');
       return;
     }
+
+    if(valR > 255) ValR = 255;
+    if(valR < 0)   ValR = 0;
+
+    if(valG > 255) valG = 255;
+    if(valG < 0)   valG = 0;
+
+    if(valB > 255) valB = 255;
+    if(valB < 0)   valB = 0;
+
     var msg = new Uint8Array([
         START_SYSEX,
         MINI_RGB_CONFIG,
@@ -509,7 +518,7 @@ Author: Ning Yu
     device.send(msg.buffer);
 
     //console.log('MINI_BTN_Status =' + MINI_BTN_Status);
-    return (MINI_BTN_Status[led_num]==1)?false:true;
+    return (MINI_BTN_Status[led_num]==1)?true:false;
   };
 
   ext.getUltrasonic = function(hw) {
@@ -684,7 +693,7 @@ Author: Ning Yu
       //Matrixmini extensions
       ['h', 'when mini is connected', 'whenConnected'],
       ['-'],//mini supported functions
-      [' ', 'Set mini DCMotor %m.minimotorPort speed %n', 'SetMiniDCMotorSpeed', '1', 255],
+      [' ', 'Set mini DCMotor %m.minimotorPort speed %n', 'SetMiniDCMotorSpeed', '1', 100],
       [' ', 'set mini servo %m.miniservoPort angle %n' ,'SetMiniServoDegree', '1', 90],
       [' ', 'set mini rgb %m.minirgbPort R %n G %n B %n' ,'SetMiniRGBPwm', '1', 0, 0, 0],
       ['b', 'is mini Button %m.mini_buttons pressed?', 'ReadMiniButton', 'MINI_BTN1'],
@@ -704,7 +713,7 @@ Author: Ning Yu
     zh: [
       ['h', '當 mini 連接時', 'whenConnected'],
       ['-'],//mini支援的功能
-      [' ', '設定 mini 馬達 %m.minimotorPort 轉速為 %n', 'SetMiniDCMotorSpeed','1', 255],
+      [' ', '設定 mini 馬達 %m.minimotorPort 轉速為 %n', 'SetMiniDCMotorSpeed','1', 100],
       [' ', '旋轉 mini 伺服馬達 %m.miniservoPort 到 %n 度', 'SetMiniServoDegree', '1', 90],
       [' ', '設定 mini RGB %m.minirgbPort 的亮度為 紅色 %n 綠色 %n 藍色 %n', 'SetMiniRGBPwm', '1',0, 0, 0],
       ['b', '偵測到 %m.mini_buttons 被按下?', 'ReadMiniButton', 'MINI按鈕 1'],
@@ -719,7 +728,7 @@ Author: Ning Yu
       [' ', '設定類比腳位 %m.mini_analog_pins 為 %n', 'analogWrite', 'a0', 100],
       ['r', '讀取類比角為 %m.mini_analog_pins', 'analogRead', 'a0'],
       ['-'],//計算方程式
-      ['r', '對應 %n 由 %n %n 為 %n %n', 'mapValues', 50, 0, 100, -240, 240]
+      ['r', '對應 %n 由 %n %n 為 %n %n', 'mapValues', 50, 0, 100, -255, 255]
     ]
   };
 
